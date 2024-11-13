@@ -18,7 +18,6 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            margin: 0;
         }
         .header {
             width: 100%;
@@ -29,6 +28,7 @@
             font-size: 24px;
         }
         .navbar {
+            margin-top: 10px;
             display: flex;
             justify-content: center;
             background-color: #004aa1;
@@ -71,6 +71,27 @@
             gap: 15px;
             margin-bottom: 20px;
         }
+        .ptphrase{
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        .ptphrase p{
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        .pdf-card {
+            width: 100px;
+            height: 150px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
         .pdf-card, .add-file-card {
             width: 100px;
             height: 150px;
@@ -83,15 +104,22 @@
             text-align: center;
             transition: border-color 0.3s;
         }
-        .pdf-card {
-            border: 1px solid #ccc;
-        }
         .add-file-card {
             border: 2px dashed #ccc;
             cursor: pointer;
+            position: relative;
         }
         .add-file-card:hover {
             border-color: #0068df;
+        }
+        .add-file-card input[type="file"] {
+            opacity: 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
         }
         .pdf-card img {
             width: 80%;
@@ -101,6 +129,11 @@
         .pdf-card p {
             font-size: 12px;
             color: #666;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 90px;
         }
         button {
             padding: 12px 25px;
@@ -122,7 +155,10 @@
 </head>
 <body>
     <div class="header">Ahmadou Adiawiakoye - Gestion de fichiers PDF</div>
-    
+    <div class="ptphrase">
+           <p> Gagnez du temps avec les fonctionnalités de fusion, de compression et de signature de vos fichiers PDF.</p> 
+    </div>
+
     <div class="navbar">
         <a href="#" class="active" id="mergeTab">Fusionner</a>
         <a href="#" id="compressTab">Compresser</a>
@@ -134,7 +170,7 @@
         <h2>Combinez facilement vos fichiers PDF</h2>
         <div class="upload-section" id="uploadSection">
             <div class="add-file-card" id="addFileCard">
-                <input type="file" id="pdfFiles" multiple accept=".pdf" style="opacity: 0; position: absolute; width: 100px; height: 150px; cursor: pointer;">
+                <input type="file" id="pdfFiles" multiple accept=".pdf">
                 <span>+</span>
             </div>
         </div>
@@ -182,37 +218,30 @@
         compressTab.addEventListener('click', () => showTab('compress'));
         signTab.addEventListener('click', () => showTab('sign'));
 
-        // Fonctionnalité de fusion de fichiers (même code que précédemment)
         const input = document.getElementById("pdfFiles");
         const uploadSection = document.getElementById("uploadSection");
 
         input.addEventListener('change', () => {
-            const cards = document.querySelectorAll('.pdf-card');
-            cards.forEach(card => card.remove());
+            document.querySelectorAll('.pdf-card').forEach(card => card.remove());
 
             for (const file of input.files) {
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const pdfCard = document.createElement('div');
-                    pdfCard.className = 'pdf-card';
+                const pdfCard = document.createElement('div');
+                pdfCard.className = 'pdf-card';
 
-                    const pdfImage = document.createElement('img');
-                    pdfImage.src = 'https://cdn-icons-png.flaticon.com/512/337/337946.png';
-                    pdfCard.appendChild(pdfImage);
+                const pdfImage = document.createElement('img');
+                pdfImage.src = 'https://cdn-icons-png.flaticon.com/512/337/337946.png';
+                pdfCard.appendChild(pdfImage);
 
-                    const pdfName = document.createElement('p');
-                    pdfName.textContent = file.name;
-                    pdfCard.appendChild(pdfName);
+                const pdfName = document.createElement('p');
+                pdfName.textContent = file.name;
+                pdfCard.appendChild(pdfName);
 
-                    uploadSection.insertBefore(pdfCard, document.getElementById('addFileCard'));
-                };
-                reader.readAsDataURL(file);
+                uploadSection.insertBefore(pdfCard, document.getElementById('addFileCard'));
             }
 
             mergeButton.disabled = input.files.length < 2;
         });
 
-        // Placeholder pour compresser et signer (logique additionnelle nécessaire)
         document.getElementById("compressFile").addEventListener("change", () => {
             compressButton.disabled = false;
         });
@@ -221,17 +250,69 @@
             signButton.disabled = false;
         });
 
+        function downloadPDF(pdfBytes, filename) {
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        }
+
         mergeButton.addEventListener('click', async () => {
-            // Logique de fusion des PDF
+            const pdfDocs = [];
+            for (const file of input.files) {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                pdfDocs.push(pdfDoc);
+            }
+
+            const mergedPdf = await PDFLib.PDFDocument.create();
+            for (const pdfDoc of pdfDocs) {
+                const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                copiedPages.forEach(page => mergedPdf.addPage(page));
+            }
+
+            const mergedPdfBytes = await mergedPdf.save();
+            downloadPDF(mergedPdfBytes, 'merged.pdf');
         });
 
         compressButton.addEventListener('click', async () => {
-            // Logique de compression des PDF
+            const compressInput = document.getElementById("compressFile"); // Utilisez l'entrée de compression
+        if (compressInput.files.length > 0) {
+            const file = compressInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+
+            pdfDoc.getPages().forEach(page => page.scale(0.8, 0.8)); // Exemple simple de réduction d'échelle pour "compresser"
+            const compressedPdfBytes = await pdfDoc.save();
+            downloadPDF(compressedPdfBytes, 'compressed.pdf');
+        } else {
+            alert("Veuillez sélectionner un fichier pour la compression.");
+        }
         });
 
         signButton.addEventListener('click', async () => {
-            // Logique de signature des PDF
+            const signInput = document.getElementById("signFile"); // Utilisez l'entrée de signature
+        if (signInput.files.length > 0) {
+            const file = signInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+            const page = pdfDoc.getPage(0); // Ajout de signature à la première page
+
+            page.drawText('Signature ici', {
+                x: 50,
+                y: 50,
+                size: 15,
+                color: PDFLib.rgb(0, 0, 1),
+            });
+
+            const signedPdfBytes = await pdfDoc.save();
+            downloadPDF(signedPdfBytes, 'signed.pdf');
+        } else {
+            alert("Veuillez sélectionner un fichier pour la signature.");
+        }
         });
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 </body>
 </html>
